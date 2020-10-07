@@ -10,6 +10,23 @@
 const int MMAP_SIZE = 4096;
 const char *name = "OS-IPC";
 
+
+#define MMAP_SIZE 4096
+#define BUFFER_SIZE 100
+#define PAYLOAD_SIZE 34
+
+typedef struct {
+  int item_no;          //number of the item produced
+  unsigned short cksum;         //16-bit Internet checksum
+  unsigned char payload[PAYLOAD_SIZE];      //random generated data
+} item;
+
+item buffer[BUFFER_SIZE];
+int in = 0;
+int out = 0;
+
+
+
 int main(int argc, char *argv[])
 {
 
@@ -22,6 +39,23 @@ int main(int argc, char *argv[])
         perror("Error creating shared memory");
         return -1;
     }
+
+
+
+    /*
+      while(true){
+
+        while(in == out)
+          sleep(1);       //do nothing but sleep for 1 second
+        next_consumed = buffer[out];
+        out = (out+1) % BUFFER_SIZE;
+
+        //consumer the item in next_consumed
+        //1. check for no skipped buffers (item_no is continguous)
+        //2. verify the calculated checksum matches what is stored in next_consumed
+
+      }
+    */
 
     /* configure the size of the shared memory object */
     ftruncate(shm_fd, MMAP_SIZE);
