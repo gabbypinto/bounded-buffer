@@ -26,24 +26,23 @@ int in = 0;
 int out = 0;
 
 
-
 int main(int argc, char *argv[])
 {
-
     int   shm_fd;
     void  *ptr;
 
     /* create the shared memory object */
     shm_fd = shm_open(name, O_RDONLY, 0666);
+
+    //error checking
     if (shm_fd == -1) {
         perror("Error creating shared memory");
         return -1;
     }
 
 
-
-    /*
-      while(true){
+    while(true)
+    {
 
         while(in == out)
           sleep(1);       //do nothing but sleep for 1 second
@@ -54,8 +53,8 @@ int main(int argc, char *argv[])
         //1. check for no skipped buffers (item_no is continguous)
         //2. verify the calculated checksum matches what is stored in next_consumed
 
-      }
-    */
+    }
+
 
     /* configure the size of the shared memory object */
     ftruncate(shm_fd, MMAP_SIZE);

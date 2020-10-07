@@ -25,10 +25,12 @@ item buffer[BUFFER_SIZE];
 int in = 0;
 int out = 0;
 
+unsigned int ip_checksum(char *data, int length);
+
+
 
 int main(int argc, char *argv[])
 {
-
     int   shm_fd;
     void  *ptr;
     char  *message;
@@ -36,25 +38,40 @@ int main(int argc, char *argv[])
 
     item next_produced; //defined above
 
-    /*
-    while (true){
-      //produce an item in next_produced
-      //1. increment the buffer count (item_no)
-      //2. calculate the 16-bit checksum (cksum)
-      //3. generate the payload data
-        // next_produced.payload[n] = (unsigned char) rand() % 256
 
-        while (((in + 1) % BUFFER_SIZE) == out)
-          sleep(1);       //do nothing but sleep for 1 second
-        buffer[in] = next_produced;       //store next_produced into share buffer size
-
-        in = (in+1) % BUFFER_SIZE;
-    }
-    */
+    int bufferCount = 0;
+    unsigned short cksum = 0;
 
     if (argc != 2) {
         printf("Usage: %s <message> \n", argv[0]);
         return -1;
+    }
+
+
+
+    while (true)
+    {
+
+      //produce an item in next_produced
+      //1. increment the buffer count (item_no)
+      bufferCount++;
+
+      //2. calculate the 16-bit checksum (cksum)
+      checksum = ip_checksum(argv[1],strlen(argv[1]));
+
+      //print checksum...
+      printf("Checksum :0x%x (%s) \n",cksum,argv[1]);
+
+      //3. generate the payload data
+      // next_produced.payload[n] = (unsigned char) rand() % 256
+
+      while (((in + 1) % BUFFER_SIZE) == out)
+          sleep(1);       //do nothing but sleep for 1 second
+      buffer[in] = next_produced;       //store next_produced into share buffer size
+
+      in = (in+1) % BUFFER_SIZE;
+
+
     }
 
     message = argv[1];
@@ -77,4 +94,24 @@ int main(int argc, char *argv[])
 
     return 0;
 
+}
+
+//calculate checksum
+unsigned int ip_checksum(char *data, int length){
+  unsigned int sum = 0xffff;
+  unsigned short word;
+
+  int i;
+
+  //handle complete 16-bit block
+  for(i=0;i+1<length;i+=2){
+    memcpy(&word,data+i,2);
+    sum+=word;
+    if(sum>0xffff){
+      sum-=0xffff;
+    }
+  }
+
+  //return the Checksum
+  return -sum;
 }
