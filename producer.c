@@ -6,6 +6,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <stdbool.h>
 
 const int MMAP_SIZE = 4096;
 const char *name = "OS-IPC";
@@ -36,7 +37,7 @@ int main(int argc, char *argv[])
     char  *message;
 
 
-    item next_produced; //defined above
+    item next_produced; //item defined above
 
 
     int bufferCount = 0;
@@ -57,7 +58,7 @@ int main(int argc, char *argv[])
       bufferCount++;
 
       //2. calculate the 16-bit checksum (cksum)
-      checksum = ip_checksum(argv[1],strlen(argv[1]));
+      cksum = ip_checksum(argv[1],strlen(argv[1]));
 
       //print checksum...
       printf("Checksum :0x%x (%s) \n",cksum,argv[1]);
@@ -70,7 +71,7 @@ int main(int argc, char *argv[])
       buffer[in] = next_produced;       //store next_produced into share buffer size
 
       in = (in+1) % BUFFER_SIZE;
-
+      break;
 
     }
 
@@ -78,6 +79,8 @@ int main(int argc, char *argv[])
 
     /* create the shared memory object */
     shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
+
+    //error checking
     if (shm_fd == -1) {
         perror("Error creating shared memory");
         return -1;
@@ -89,9 +92,10 @@ int main(int argc, char *argv[])
     /* memory map the shared memory object */
     ptr = mmap(0, MMAP_SIZE, PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
+
+
     /* write the message to shared memory */
     sprintf(ptr, "%s", message);
-
     return 0;
 
 }

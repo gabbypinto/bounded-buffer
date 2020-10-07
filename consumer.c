@@ -6,6 +6,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <stdbool.h>
 
 const int MMAP_SIZE = 4096;
 const char *name = "OS-IPC";
@@ -31,6 +32,9 @@ int main(int argc, char *argv[])
     int   shm_fd;
     void  *ptr;
 
+
+    item next_consumed; //item defined above
+
     /* create the shared memory object */
     shm_fd = shm_open(name, O_RDONLY, 0666);
 
@@ -52,7 +56,7 @@ int main(int argc, char *argv[])
         //consumer the item in next_consumed
         //1. check for no skipped buffers (item_no is continguous)
         //2. verify the calculated checksum matches what is stored in next_consumed
-
+        break;
     }
 
 
@@ -67,7 +71,6 @@ int main(int argc, char *argv[])
 
     /* remove the shared memory object */
     shm_unlink(name);
-
     return 0;
 
 }
