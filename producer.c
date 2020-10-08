@@ -11,7 +11,7 @@
 const int MMAP_SIZE = 4096;
 const char *name = "OS-IPC";
 
-/*
+
 #define MMAP_SIZE 4096
 #define BUFFER_SIZE 100
 #define PAYLOAD_SIZE 34
@@ -27,7 +27,6 @@ item buffer[BUFFER_SIZE];
 int in = 0;
 int out = 0;
 
-*/
 
 extern unsigned int ip_checksum(unsigned char *data, int length);
 
@@ -38,9 +37,7 @@ int main(int argc, char *argv[])
     void  *ptr;
     //char  *message;
 
-
-    //item next_produced; //item defined above
-
+    item next_produced; //item defined above
 
     //int bufferCount = 0; //bufferCount
     unsigned short cksum;
@@ -67,44 +64,38 @@ int main(int argc, char *argv[])
 
     /* memory map the shared memory object */
     ptr = mmap(0, MMAP_SIZE, PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    buffer = (unsigned char *)ptr;
 
-    for(i=0;i<nbytes;i++){
-      //buffer[i] = (unsigned char *)ptr;
-      buffer[i] = (unsigned char) rand() % 256;
-    }
+    buffer = (unsigned char *)ptr;
+    next_produced.item_no = 0;
+
+    while(1){
 
       //produce an item in next_produced
       //1. increment the buffer count (item_no)
-      //bufferCount++;
+      next_produced.item_no++;
+      for(i=0;i<nbytes;i++){
+        //3. generate the payload data
+        next_produced.payload[i] = (unsigned char) rand() % 256;
+      }
 
-    //2. calculate the 16-bit checksum (cksum)
-    cksum = (unsigned short) ip_checksum(&buffer[0],nbytes);
+      //2. calculate the 16-bit checksum (cksum)
+      next_produced.cksum = (unsigned short) ip_checksum(&buffer[0],nbytes);
+      //printf("Checksum :0x%x (%s) \n",cksum,argv[1]);
 
-    //print checksum...
-    //printf("Checksum :0x%x (%s) \n",cksum,argv[1]);
+      while (((in + 1) % BUFFER_SIZE) == out)
+            sleep(1);       //do nothing but sleep for 1 second
 
-    memcpy((void *)&buffer[nbytes],&cksum,sizeof(cksum));
+      //   buffer[in] = next_produced;       //store next_produced into share buffer size
+      in = (in+1) % BUFFER_SIZE;
 
-      //3. generate the payload data
-      // next_produced.payload[n] = (unsigned char) rand() % 256
+      // message = argv[1];
 
-    //   while (((in + 1) % BUFFER_SIZE) == out)
-    //       sleep(1);       //do nothing but sleep for 1 second
-    //   buffer[in] = next_produced;       //store next_produced into share buffer size
-    //
-    //   in = (in+1) % BUFFER_SIZE;
-    //   break;
-    //
-    // //}
-    //
-    // message = argv[1];
+      /* write the message to shared memory */
+      //sprintf(ptr, "%s", message);
 
+      memcpy((void *)&buffer[in],&next_produced,sizeof(next_produced));
+    }
 
-    /* write the message to shared memory */
-    //sprintf(ptr, "%s", message);
-
-    /*remove the shared memory object */
     return 0;
 
 }
