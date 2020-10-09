@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <stdbool.h>
+#include <signal.h>
 
 const int MMAP_SIZE = 4096;
 const char *name = "OS-IPC";
@@ -15,7 +16,13 @@ const char *name = "OS-IPC";
 #define MMAP_SIZE 4096
 #define BUFFER_SIZE 100
 #define PAYLOAD_SIZE 34
-
+void sig_handler(int sig){
+    printf("\nCtrlc found\n");
+    /* remove the shared memory object */
+    shm_unlink(name);
+    printf("Exiting\n");
+    exit(1);
+}
 
 typedef struct {
   int item_no;          //number of the item produced
@@ -23,7 +30,7 @@ typedef struct {
   unsigned char payload[PAYLOAD_SIZE];      //random generated data
 } item;
 
-item buffer[BUFFER_SIZE];
+item buffer_item[BUFFER_SIZE];
 int in = 0;
 int out = 0;
 
@@ -41,8 +48,16 @@ int main(int argc, char *argv[])
 
     //int bufferCount = 0; //bufferCount
     unsigned short cksum;
+    //unsigned char *buffer;   //change item buffer
+
+    item next_consumed; //item defined above
+    unsigned short cksum1,cksum2;
     unsigned char *buffer;   //change item buffer
 
+    struct sigaction act;
+    act.sa_handler = sig_handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
     if (argc != 2) {
         printf("Usage: %s <nbytes> \n", argv[0]);
         return -1;
@@ -69,7 +84,6 @@ int main(int argc, char *argv[])
     next_produced.item_no = 0;
 
     while(1){
-
       //produce an item in next_produced
       //1. increment the buffer count (item_no)
       next_produced.item_no++;
@@ -82,18 +96,22 @@ int main(int argc, char *argv[])
       next_produced.cksum = (unsigned short) ip_checksum(&buffer[0],nbytes);
       //printf("Checksum :0x%x (%s) \n",cksum,argv[1]);
 
-      while (((in + 1) % BUFFER_SIZE) == out)
-            sleep(1);       //do nothing but sleep for 1 second
+      while (((in + 1) % BUFFER_SIZE) == out){
+          sleep(1);
+          buffer_item[in] = next_produced;       //store next_produced into share buffer size
+          in = (in+1) % BUFFER_SIZE;
+      }    //do nothing but sleep for 1 second
 
-      //   buffer[in] = next_produced;       //store next_produced into share buffer size
-      in = (in+1) % BUFFER_SIZE;
+
 
       // message = argv[1];
 
       /* write the message to shared memory */
       //sprintf(ptr, "%s", message);
 
-      memcpy((void *)&buffer[in],&next_produced,sizeof(next_produced));
+      memcpy((void *)&buffer_item[in],&next_produced,sizeof(next_produced));
+
+      sigaction(SIGINT, &act, 0);
     }
 
     return 0;

@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <stdbool.h>
+#include <signal.h>
 
 const int MMAP_SIZE = 4096;
 const char *name = "OS-IPC";
@@ -14,6 +15,14 @@ const char *name = "OS-IPC";
 
 #define BUFFER_SIZE 100
 #define PAYLOAD_SIZE 34
+void sig_handler(int sig){
+
+    printf("\nCtrlc found\n");
+    /* remove the shared memory object */
+    shm_unlink(name);
+    printf("Exiting\n");
+    exit(1);
+}
 
 typedef struct {
   int item_no;          //number of the item produced
@@ -21,14 +30,14 @@ typedef struct {
   unsigned char payload[PAYLOAD_SIZE];      //random generated data
 } item;
 
-//item buffer[BUFFER_SIZE];
+item buffer_item[BUFFER_SIZE];
 int in = 0;
 int out = 0;
 
 extern unsigned int ip_checksum(unsigned char *data, int nbytes);
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
+    printf("hello\n");
     int   shm_fd;
     void  *ptr;
     int   nbytes;
@@ -36,6 +45,12 @@ int main(int argc, char *argv[])
     item next_consumed; //item defined above
     unsigned short cksum1,cksum2;
     unsigned char *buffer;   //change item buffer
+
+    struct sigaction act;
+
+    act.sa_handler = sig_handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
 
     if (argc != 2) {
         printf("Usage: %s <buffer-size> \n", argv[1]);
@@ -52,19 +67,26 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    int bufferCount=0;
+    int count=0;
+    while(true){
 
-    while(true)
-    {
+      while(in == out){
+        printf("sleep\n");
+        sleep(1);//do nothing but sleep for 1 second
+        next_consumed = buffer_item[out];
+        out = (out+1) % BUFFER_SIZE;
+      }
 
-      while(in == out)
-        sleep(1);       //do nothing but sleep for 1 second
-
-      //next_consumed = buffer[out];
-
-      out = (out+1) % BUFFER_SIZE;
 
       //consumer the item in next_consumed
       //1. check for no skipped buffers (item_no is continguous)
+      if(!(bufferCount==next_consumed.item_no)){
+        printf("Skipped buffers\n");
+        shm_unlink(name);
+        printf("Exiting\n");
+        exit(1);
+      }
 
 
       /* configure the size of the shared memory object */
@@ -72,7 +94,6 @@ int main(int argc, char *argv[])
 
       /* memory map the shared memory object */
       ptr = mmap(0, MMAP_SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
-
       /* read the message to shared memory */
       //printf("%s\n", (char *)ptr);
 
@@ -83,13 +104,18 @@ int main(int argc, char *argv[])
       //2. verify the calculated checksum matches what is stored in next_consumed
       if(cksum1!=cksum2){
         printf("checksum mismatch: received 0x%x, expected 0x%x \n",cksum2,cksum1);
+        break;
       }
-
+      sigaction(SIGINT, &act, 0);
+      //printf(next_consumed.item_no);
+      bufferCount++;
+      next_consumed.item_no++;
 
     }
 
-    /* remove the shared memory object */
-    shm_unlink(name);
+
+
+
     return 0;
 
 }
