@@ -18,8 +18,6 @@ const char *name = "OS-IPC";
 void sig_handler(int sig){
 
     printf("\nCtrlc found\n");
-    /* remove the shared memory object */
-    shm_unlink(name);
     printf("Exiting\n");
     exit(1);
 }
@@ -34,10 +32,11 @@ item buffer_item[BUFFER_SIZE];
 int in = 0;
 int out = 0;
 
+
+
 extern unsigned int ip_checksum(unsigned char *data, int nbytes);
 
 int main(int argc, char *argv[]){
-    printf("hello\n");
     int   shm_fd;
     void  *ptr;
     int   nbytes;
@@ -57,8 +56,7 @@ int main(int argc, char *argv[]){
         return -1;
     }
 
-    nbytes = atoi(argv[1]);
-
+    name = argv[1];
     /* create the shared memory object */
     shm_fd = shm_open(name, O_RDONLY, 0666);
     //error checking
@@ -72,34 +70,34 @@ int main(int argc, char *argv[]){
     while(true){
 
       while(in == out){
-        printf("sleep\n");
-        sleep(1);//do nothing but sleep for 1 second
-        next_consumed = buffer_item[out];
-        out = (out+1) % BUFFER_SIZE;
+        sleep(1);             //do nothing but sleep for 1 second
+        sigaction(SIGINT, &act, 0);
       }
 
+      memcpy((void*)&cksum2, (void*)&buffer[PAYLOAD_SIZE],sizeof(unsigned short));
+      next_consumed = buffer_item[out];
+      out = (out+1) % BUFFER_SIZE;
 
       //consumer the item in next_consumed
       //1. check for no skipped buffers (item_no is continguous)
       if(!(bufferCount==next_consumed.item_no)){
         printf("Skipped buffers\n");
-        shm_unlink(name);
         printf("Exiting\n");
         exit(1);
       }
-
 
       /* configure the size of the shared memory object */
       ftruncate(shm_fd, MMAP_SIZE);
 
       /* memory map the shared memory object */
       ptr = mmap(0, MMAP_SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
+
       /* read the message to shared memory */
       //printf("%s\n", (char *)ptr);
 
       buffer = (unsigned char *)ptr;
-      cksum1 = (unsigned short )ip_checksum (&buffer[0],nbytes);
-      memcpy((void*)&cksum2, (void*)&buffer[nbytes],sizeof(unsigned short));
+      cksum1 = (unsigned short )ip_checksum (&buffer[0],PAYLOAD_SIZE);
+
 
       //2. verify the calculated checksum matches what is stored in next_consumed
       if(cksum1!=cksum2){
@@ -107,15 +105,8 @@ int main(int argc, char *argv[]){
         break;
       }
       sigaction(SIGINT, &act, 0);
-      //printf(next_consumed.item_no);
       bufferCount++;
       next_consumed.item_no++;
-
     }
-
-
-
-
     return 0;
-
 }

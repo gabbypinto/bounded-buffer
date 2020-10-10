@@ -42,13 +42,11 @@ int main(int argc, char *argv[])
     int   i,shm_fd;
     int   nbytes;
     void  *ptr;
-    //char  *message;
+    char  *message;
 
     item next_produced; //item defined above
 
-    //int bufferCount = 0; //bufferCount
     unsigned short cksum;
-    //unsigned char *buffer;   //change item buffer
 
     item next_consumed; //item defined above
     unsigned short cksum1,cksum2;
@@ -63,7 +61,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    nbytes = atoi(argv[1]);
+    name = argv[1];
 
     /* create the shared memory object */
     shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
@@ -84,7 +82,6 @@ int main(int argc, char *argv[])
     next_produced.item_no = 0;
 
     while(1){
-      //produce an item in next_produced
       //1. increment the buffer count (item_no)
       next_produced.item_no++;
       for(i=0;i<nbytes;i++){
@@ -93,23 +90,15 @@ int main(int argc, char *argv[])
       }
 
       //2. calculate the 16-bit checksum (cksum)
-      next_produced.cksum = (unsigned short) ip_checksum(&buffer[0],nbytes);
+      next_produced.cksum = (unsigned short) ip_checksum(&next_produced.payload[0],PAYLOAD_SIZE);
       //printf("Checksum :0x%x (%s) \n",cksum,argv[1]);
 
       while (((in + 1) % BUFFER_SIZE) == out){
-          sleep(1);
-          buffer_item[in] = next_produced;       //store next_produced into share buffer size
-          in = (in+1) % BUFFER_SIZE;
-      }    //do nothing but sleep for 1 second
-
-
-
-      // message = argv[1];
-
-      /* write the message to shared memory */
-      //sprintf(ptr, "%s", message);
-
+          sleep(1);     //do nothing but sleep for 1 second
+      }
       memcpy((void *)&buffer_item[in],&next_produced,sizeof(next_produced));
+      buffer_item[in] = next_produced;       //store next_produced into share buffer size
+      in = (in+1) % BUFFER_SIZE;
 
       sigaction(SIGINT, &act, 0);
     }
